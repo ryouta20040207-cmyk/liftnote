@@ -12,6 +12,7 @@
     <link rel="apple-touch-icon" href="favicon.svg">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="onboarding.css">
   </head>
   <body>
     <main class="app" aria-label="LiftNote 筋トレメモアプリ">
@@ -45,6 +46,7 @@
 
       <nav class="tabs" aria-label="表示切り替え">
         <button class="tab is-active" type="button" data-view="workout">今日</button>
+        <button class="tab" type="button" data-view="recommend">おすすめ</button>
         <button class="tab" type="button" data-view="history">履歴</button>
         <button class="tab" type="button" data-view="library">種目</button>
       </nav>
@@ -94,6 +96,14 @@
         <div class="set-list" id="setList"></div>
       </section>
 
+      <section class="view" id="recommendView" aria-labelledby="recommendTitle">
+        <div class="section-heading">
+          <h2 id="recommendTitle">おすすめメニュー</h2>
+          <button class="text-button" id="refreshRecommendations" type="button">更新</button>
+        </div>
+        <div class="recommendation-list" id="recommendationList"></div>
+      </section>
+
       <section class="view" id="historyView" aria-labelledby="historyTitle">
         <div class="section-heading">
           <h2 id="historyTitle">履歴</h2>
@@ -114,6 +124,47 @@
         <div class="exercise-cloud" id="exerciseCloud"></div>
       </section>
     </main>
+
+    <div class="onboarding" id="onboarding" aria-hidden="true">
+      <div class="onboarding-dialog" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+        <div class="demo-screen" aria-label="セット記録の短いデモ">
+          <div class="demo-phone">
+            <div class="demo-top">
+              <span>LiftNote</span>
+              <strong>0 SETS</strong>
+            </div>
+            <div class="demo-field demo-exercise">ベンチプレス</div>
+            <div class="demo-row">
+              <div class="demo-field">60kg</div>
+              <div class="demo-field">10回</div>
+            </div>
+            <div class="demo-button">セットを追加</div>
+            <div class="demo-result">
+              <span>1</span>
+              <strong>60kg × 10</strong>
+            </div>
+            <div class="demo-timer">休憩 01:30</div>
+            <div class="demo-pointer"></div>
+          </div>
+        </div>
+
+        <div class="onboarding-copy">
+          <p class="eyebrow">はじめての使い方</p>
+          <h2 id="onboardingTitle">セットを入れるだけで記録できます</h2>
+          <ol>
+            <li>種目・重量・回数を入力して「セットを追加」。</li>
+            <li>追加すると休憩タイマーが自動で始まります。</li>
+            <li>トレーニング後は「完了」で履歴に保存します。</li>
+          </ol>
+          <p class="onboarding-note">記録はスマートフォン本体に保存されます。Wi-Fiが変わってもLTEでも使えます。</p>
+        </div>
+
+        <div class="onboarding-actions">
+          <button class="text-button" id="replayOnboarding" type="button">もう一度見る</button>
+          <button class="primary-button" id="closeOnboarding" type="button">使い始める</button>
+        </div>
+      </div>
+    </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="script.js"></script>

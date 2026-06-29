@@ -1,4 +1,5 @@
 const STORAGE_KEY = "liftnote-state-v1";
+const ONBOARDING_KEY = "liftnote-onboarding-seen-v1";
 const defaultExercises = [
   "ベンチプレス",
   "スクワット",
@@ -24,6 +25,7 @@ const sessionTime = document.querySelector("#sessionTime");
 const tabs = document.querySelectorAll(".tab");
 const views = {
   workout: document.querySelector("#workoutView"),
+  recommend: document.querySelector("#recommendView"),
   history: document.querySelector("#historyView"),
   library: document.querySelector("#libraryView")
 };
@@ -34,6 +36,7 @@ const repsInput = document.querySelector("#repsInput");
 const noteInput = document.querySelector("#noteInput");
 const exerciseList = document.querySelector("#exerciseList");
 const setList = document.querySelector("#setList");
+const recommendationList = document.querySelector("#recommendationList");
 const historyList = document.querySelector("#historyList");
 const exerciseCloud = document.querySelector("#exerciseCloud");
 const libraryForm = document.querySelector("#libraryForm");
@@ -43,16 +46,25 @@ const timerToggle = document.querySelector("#timerToggle");
 const toast = document.querySelector("#toast");
 const connectionStatus = document.querySelector("#connectionStatus");
 const importFile = document.querySelector("#importFile");
+const onboarding = document.querySelector("#onboarding");
+const closeOnboardingButton = document.querySelector("#closeOnboarding");
+const replayOnboardingButton = document.querySelector("#replayOnboarding");
 
 document.querySelector("#finishWorkout").addEventListener("click", finishWorkout);
 document.querySelector("#exportButton").addEventListener("click", exportRecords);
 document.querySelector("#importButton").addEventListener("click", () => importFile.click());
 document.querySelector("#clearAll").addEventListener("click", clearAllData);
 document.querySelector("#resetLibrary").addEventListener("click", resetLibrary);
+document.querySelector("#refreshRecommendations")?.addEventListener("click", () => {
+  renderRecommendations();
+  showToast("おすすめを更新しました");
+});
 setForm.addEventListener("submit", addSet);
 libraryForm.addEventListener("submit", addExercise);
 timerToggle.addEventListener("click", toggleTimer);
 importFile.addEventListener("change", importRecords);
+closeOnboardingButton?.addEventListener("click", closeOnboarding);
+replayOnboardingButton?.addEventListener("click", replayOnboarding);
 
 document.querySelectorAll("[data-rest]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -75,6 +87,15 @@ setList.addEventListener("click", (event) => {
   state.today.sets = state.today.sets.filter((set) => set.id !== button.dataset.deleteSet);
   saveState();
   render();
+});
+
+recommendationList?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-add-recommendation]");
+  if (!button) return;
+  const recommendation = buildRecommendations()
+    .find((item) => item.exercise === button.dataset.addRecommendation);
+  if (!recommendation) return;
+  addRecommendedSet(recommendation);
 });
 
 historyList.addEventListener("click", (event) => {
@@ -118,6 +139,7 @@ window.addEventListener("online", updateConnectionStatus);
 window.addEventListener("offline", updateConnectionStatus);
 
 render();
+showOnboardingIfNeeded();
 registerServiceWorker();
 
 function loadState() {
@@ -155,6 +177,15 @@ function dateKey(date = new Date()) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function daysBetween(startDate, endDate) {
+  const [startYear, startMonth, startDay] = String(startDate).split("-").map(Number);
+  const [endYear, endMonth, endDay] = String(endDate).split("-").map(Number);
+  if (![startYear, startMonth, startDay, endYear, endMonth, endDay].every(Number.isFinite)) return 0;
+  const start = new Date(startYear, startMonth - 1, startDay);
+  const end = new Date(endYear, endMonth - 1, endDay);
+  return Math.max(0, Math.round((end - start) / 86400000));
 }
 
 function formatDate(value) {
@@ -213,10 +244,19 @@ function finishWorkout() {
     return;
   }
 
-  const finished = {
-    ...state.today,
-    finishedAt: Date.now()
-  };
+  const finishedAt = Date.now();
+  const existingSession = state.history.find((item) => item.date === state.today.date);
+  const finished = existingSession
+    ? {
+        ...existingSession,
+        startedAt: Math.min(Number(existingSession.startedAt) || state.today.startedAt, state.today.startedAt),
+        finishedAt,
+        sets: [...(Array.isArray(existingSession.sets) ? existingSession.sets : []), ...state.today.sets]
+      }
+    : {
+        ...state.today,
+        finishedAt
+      };
 
   state.history = [finished, ...state.history.filter((item) => item.date !== finished.date)].slice(0, 60);
   state.today = { id: crypto.randomUUID(), date: dateKey(), startedAt: Date.now(), sets: [] };
@@ -225,7 +265,7 @@ function finishWorkout() {
   saveState();
   render();
   switchView("history");
-  showToast("今日のトレーニングを保存しました");
+  showToast(existingSession ? "今日の履歴に追加しました" : "今日のトレーニングを保存しました");
 }
 
 function addExercise(event) {
@@ -369,6 +409,7 @@ function render() {
   renderSummary();
   renderExerciseOptions();
   renderSets();
+  renderRecommendations();
   renderHistory();
   renderLibrary();
   renderTimer();
@@ -414,6 +455,146 @@ function renderSets() {
       </article>
     `;
   }).join("");
+}
+
+function renderRecommendations() {
+  if (!recommendationList) return;
+  const recommendations = buildRecommendations();
+  const hasHistory = state.history.some((session) => Array.isArray(session.sets) && session.sets.length);
+
+  recommendationList.innerHTML = `
+    <div class="recommendation-intro">
+      <strong>${hasHistory ? "記録から選びました" : "まずはこのメニューから"}</strong>
+      <span>${hasHistory ? "最近の履歴、頻度、前回の内容をもとにしています。" : "履歴が増えると、あなたの記録に合わせて変わります。"}</span>
+    </div>
+    ${recommendations.map((item) => `
+      <article class="recommendation-card">
+        <div>
+          <div class="recommendation-reason">${escapeHTML(item.reason)}</div>
+          <h3>${escapeHTML(item.exercise)}</h3>
+        </div>
+        <div class="recommendation-plan">
+          <span>${formatNumber(item.weight)}kg</span>
+          <span>${item.reps}回</span>
+          <span>${item.sets}セット</span>
+        </div>
+        <button type="button" data-add-recommendation="${escapeHTML(item.exercise)}">今日に追加</button>
+      </article>
+    `).join("")}
+  `;
+}
+
+function buildRecommendations() {
+  const hasHistory = state.history.some((session) => Array.isArray(session.sets) && session.sets.length);
+  if (!hasHistory) return buildStarterRecommendations();
+
+  const todayExercises = new Set(state.today.sets.map((set) => set.exercise));
+  const summaries = summarizeExercises();
+  const scored = summaries
+    .filter((item) => !todayExercises.has(item.exercise))
+    .map((item) => ({
+      ...item,
+      score: item.count * 2 + Math.min(item.daysSince, 14) + (item.lastVolume > 0 ? 1 : 0)
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4);
+
+  if (scored.length) {
+    return scored.map((item) => ({
+      exercise: item.exercise,
+      weight: item.weight,
+      reps: item.reps,
+      sets: Math.min(4, Math.max(2, item.typicalSets || 3)),
+      reason: item.count === 0
+        ? "まだ記録が少ない種目です"
+        : item.daysSince >= 7
+          ? `${item.daysSince}日空いています`
+          : "よく記録している種目です"
+    }));
+  }
+
+  return buildStarterRecommendations();
+}
+
+function buildStarterRecommendations() {
+  return defaultExercises.slice(0, 4).map((exercise, index) => ({
+    exercise,
+    weight: [40, 50, 50, 20][index] || 20,
+    reps: [10, 10, 8, 10][index] || 10,
+    sets: 3,
+    reason: "全身をバランスよく始める候補"
+  }));
+}
+
+function summarizeExercises() {
+  const summaries = new Map();
+  const sessions = [...state.history].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+  sessions.forEach((session) => {
+    const sessionSets = Array.isArray(session.sets) ? session.sets : [];
+    const grouped = groupSets(sessionSets);
+    grouped.forEach(([exercise, sets]) => {
+      const current = summaries.get(exercise) || {
+        exercise,
+        count: 0,
+        lastDate: session.date,
+        weight: 0,
+        reps: 10,
+        typicalSets: 0,
+        lastVolume: 0
+      };
+      const lastSet = sets[sets.length - 1];
+      current.count += sets.length;
+      current.typicalSets = Math.max(current.typicalSets, sets.length);
+      if (!summaries.has(exercise)) {
+        current.lastDate = session.date;
+        current.weight = Number(lastSet?.weight) || 0;
+        current.reps = Number(lastSet?.reps) || 10;
+        current.lastVolume = calculateStats(sets).volume;
+      }
+      summaries.set(exercise, current);
+    });
+  });
+
+  state.exercises.forEach((exercise) => {
+    if (summaries.has(exercise)) return;
+    summaries.set(exercise, {
+      exercise,
+      count: 0,
+      lastDate: "1970-01-01",
+      weight: 20,
+      reps: 10,
+      typicalSets: 3,
+      lastVolume: 0
+    });
+  });
+
+  return [...summaries.values()].map((item) => ({
+    ...item,
+    daysSince: daysBetween(item.lastDate, dateKey())
+  }));
+}
+
+function addRecommendedSet(recommendation) {
+  const now = Date.now();
+  const sets = Array.from({ length: recommendation.sets }, () => ({
+    id: crypto.randomUUID(),
+    exercise: recommendation.exercise,
+    reps: recommendation.reps,
+    weight: recommendation.weight,
+    note: "おすすめメニューから追加",
+    createdAt: now
+  }));
+
+  state.today.sets.push(...sets);
+  if (!state.exercises.includes(recommendation.exercise)) {
+    state.exercises.unshift(recommendation.exercise);
+  }
+  timerRemaining = restSeconds;
+  saveState();
+  render();
+  switchView("workout");
+  showToast(`${recommendation.exercise}を追加しました`);
 }
 
 function renderHistory() {
@@ -513,6 +694,34 @@ function showToast(message) {
   toast.classList.add("is-visible");
   clearTimeout(showToast.timer);
   showToast.timer = setTimeout(() => toast.classList.remove("is-visible"), 2200);
+}
+
+function showOnboardingIfNeeded() {
+  if (!onboarding || !closeOnboardingButton) return;
+  if (localStorage.getItem(ONBOARDING_KEY) === "seen") return;
+  openOnboarding();
+}
+
+function openOnboarding() {
+  onboarding.classList.add("is-visible");
+  onboarding.setAttribute("aria-hidden", "false");
+  document.body.classList.add("has-modal");
+  closeOnboardingButton.focus();
+}
+
+function closeOnboarding() {
+  localStorage.setItem(ONBOARDING_KEY, "seen");
+  onboarding.classList.remove("is-visible");
+  onboarding.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("has-modal");
+}
+
+function replayOnboarding() {
+  if (!onboarding) return;
+  const demo = onboarding.querySelector(".demo-phone");
+  if (!demo) return;
+  const freshDemo = demo.cloneNode(true);
+  demo.replaceWith(freshDemo);
 }
 
 function updateConnectionStatus() {
