@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="LiftNote">
+  <rect width="64" height="64" rx="14" fill="#101820"/>
+  <path d="M18 42h28" stroke="#1fbf92" stroke-width="6" stroke-linecap="round"/>
+  <path d="M14 36v12M50 36v12" stroke="#f36f45" stroke-width="5" stroke-linecap="round"/>
+  <path d="M24 22h16c3 0 5 2 5 5v20H19V27c0-3 2-5 5-5Z" fill="#ffffff"/>
+  <path d="M25 31h14M25 38h10" stroke="#101820" stroke-width="4" stroke-linecap="round"/>
+  <path d="M28 15h8v7h-8z" fill="#e8b44d"/>
+</svg>
