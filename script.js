@@ -614,7 +614,7 @@ function renderHistory() {
         </div>
         <div class="history-stats">
           <span>${stats.sets} sets</span>
-          <span>${formatNumber(stats.volume)}kg</span>
+          <span>${stats.reps}回</span>
           <span>${stats.exercises}種目</span>
         </div>
         <button type="button" data-load-session="${session.id}">今日にコピー</button>
@@ -673,6 +673,7 @@ function calculateStats(sets) {
   return {
     sets: sets.length,
     exercises: new Set(sets.map((set) => set.exercise)).size,
+    reps: sets.reduce((sum, set) => sum + (Number(set.reps) || 0), 0),
     volume: sets.reduce((sum, set) => sum + (Number(set.weight) || 0) * (Number(set.reps) || 0), 0)
   };
 }
