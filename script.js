@@ -606,6 +606,7 @@ function renderHistory() {
   historyList.innerHTML = state.history.map((session) => {
     const stats = calculateStats(session.sets);
     const names = [...new Set(session.sets.map((set) => set.exercise))].join(" / ");
+    const details = renderHistoryDetails(session.sets);
     return `
       <article class="history-card">
         <div>
@@ -617,10 +618,37 @@ function renderHistory() {
           <span>${stats.reps}回</span>
           <span>${stats.exercises}種目</span>
         </div>
+        ${details}
         <button type="button" data-load-session="${session.id}">今日にコピー</button>
       </article>
     `;
   }).join("");
+}
+
+function renderHistoryDetails(sets) {
+  const grouped = groupSets(sets);
+  if (!grouped.length) return "";
+
+  return `
+    <div class="history-detail-list">
+      ${grouped.map(([exercise, exerciseSets]) => {
+        const stats = calculateStats(exerciseSets);
+        return `
+          <section class="history-detail">
+            <div class="history-detail-head">
+              <strong>${escapeHTML(exercise)}</strong>
+              <span>${stats.sets} sets</span>
+            </div>
+            <div class="history-detail-sets">
+              ${exerciseSets.map((set, index) => `
+                <span>${index + 1}: ${formatNumber(set.weight)}kg × ${set.reps}回</span>
+              `).join("")}
+            </div>
+          </section>
+        `;
+      }).join("")}
+    </div>
+  `;
 }
 
 function renderLibrary() {
