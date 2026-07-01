@@ -1,4 +1,4 @@
-const CACHE_NAME = "liftnote-v10";
+const CACHE_NAME = "liftnote-v11";
 const APP_SHELL = [
   "./",
   "./index.html",

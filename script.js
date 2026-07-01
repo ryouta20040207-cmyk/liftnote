@@ -615,7 +615,6 @@ function renderHistory() {
         </div>
         <div class="history-stats">
           <span>${stats.sets} sets</span>
-          <span>${stats.reps}回</span>
           <span>${stats.exercises}種目</span>
         </div>
         ${details}
